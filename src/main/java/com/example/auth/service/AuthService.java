@@ -5,15 +5,14 @@ import com.example.auth.exception.AuthenticationFailedException;
 import com.example.auth.exception.InvalidInputException;
 import com.example.auth.exception.ResourceConflictException;
 import com.example.auth.repository.UserRepository;
+import com.example.auth.validator.PasswordPolicyValidator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /**
  * Service principal gérant l'inscription et la connexion des utilisateurs.
- * ATTENTION : Cette implémentation est volontairement dangereuse
- * et ne doit jamais être utilisée en production.
- * Les mots de passe sont stockés en clair, ce qui est inacceptable en production.
+ * TP2 améliore le stockage mais ne protège pas encore contre le rejeu.
  */
 @Service
 public class AuthService {
@@ -21,6 +20,7 @@ public class AuthService {
     private static final Logger logger = LoggerFactory.getLogger(AuthService.class);
 
     private final UserRepository userRepository;
+    private final PasswordPolicyValidator passwordPolicyValidator = new PasswordPolicyValidator();
 
     public AuthService(UserRepository userRepository) {
         this.userRepository = userRepository;
@@ -41,9 +41,10 @@ public class AuthService {
             throw new InvalidInputException("Format email invalide");
         }
 
-        // Validation mot de passe
-        if (password == null || password.length() < 4) {
-            throw new InvalidInputException("Mot de passe trop court (minimum 4 caractères)");
+        // Validation politique mot de passe (TP2)
+        String policyError = passwordPolicyValidator.getErrorMessage(password);
+        if (policyError != null) {
+            throw new InvalidInputException(policyError);
         }
 
         // Vérifier si email existe déjà
@@ -52,7 +53,7 @@ public class AuthService {
             throw new ResourceConflictException("Email déjà utilisé");
         }
 
-        User user = new User(email, password);
+        User user = new User(email, password); // le hash BCrypt viendra à l'étape suivante
         userRepository.save(user);
         logger.info("Inscription réussie pour {}", email);
         return user;
@@ -67,7 +68,7 @@ public class AuthService {
     public String login(String email, String password) {
         return userRepository.findByEmail(email)
                 .map(user -> {
-                    if (user.getPassword().equals(password)) {
+                    if (user.getPasswordHash().equals(password)) { // sera remplacé par BCrypt à l'étape suivante
                         String token = java.util.UUID.randomUUID().toString();
                         user.setToken(token);
                         userRepository.save(user);
