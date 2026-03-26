@@ -53,27 +53,44 @@ public class AuthService {
     /**
      * Connecte un utilisateur existant.
      */
+    /**
+     * Connecte un utilisateur existant.
+     * Anti brute-force : 5 échecs consécutifs bloquent le compte 2 minutes.
+     */
     public String login(String email, String password) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new AuthenticationFailedException("Email ou mot de passe incorrect."));
 
-        // Vérifier le mot de passe avec BCrypt
+        // Vérifier si le compte est bloqué
+        if (user.getLockUntil() != null && user.getLockUntil().isAfter(LocalDateTime.now())) {
+            throw new AuthenticationFailedException("Compte temporairement bloqué. Réessayez dans 2 minutes.");
+        }
+
+        // Vérifier le mot de passe
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
+            // Incrémenter les échecs
+            user.setFailedAttempts(user.getFailedAttempts() + 1);
+
+            // Bloquer si 5 échecs
+            if (user.getFailedAttempts() >= 5) {
+                user.setLockUntil(LocalDateTime.now().plusMinutes(2));
+                userRepository.save(user);
+                throw new AuthenticationFailedException("Compte temporairement bloqué. Réessayez dans 2 minutes.");
+            }
+
+            userRepository.save(user);
             throw new AuthenticationFailedException("Email ou mot de passe incorrect.");
         }
 
-        // Générer un token simple
+        // Login OK : réinitialiser les compteurs
+        user.setFailedAttempts(0);
+        user.setLockUntil(null);
+
+        // Générer un token
         String token = UUID.randomUUID().toString();
         user.setToken(token);
         userRepository.save(user);
 
         return token;
-    }
-
-    /**
-     * Vérifie si un token est valide.
-     */
-    public boolean isTokenValid(String token) {
-        return userRepository.findByToken(token).isPresent();
     }
 }

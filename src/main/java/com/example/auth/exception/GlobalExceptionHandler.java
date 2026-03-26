@@ -13,8 +13,6 @@ import java.util.Map;
 /**
  * Gestionnaire global des exceptions.
  * Renvoie des réponses JSON cohérentes pour toutes les erreurs.
- * ATTENTION : Cette implémentation est volontairement dangereuse
- * et ne doit jamais être utilisée en production.
  */
 @ControllerAdvice
 public class GlobalExceptionHandler {
@@ -28,7 +26,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AuthenticationFailedException.class)
     public ResponseEntity<Map<String, Object>> handleAuthFailed(
             AuthenticationFailedException ex, HttpServletRequest request) {
-        return buildResponse(HttpStatus.UNAUTHORIZED, ex.getMessage(), request.getRequestURI());
+
+        // 423 si compte bloqué, 401 sinon
+        HttpStatus status = ex.getMessage().contains("bloqué")
+                ? HttpStatus.LOCKED
+                : HttpStatus.UNAUTHORIZED;
+
+        return buildResponse(status, ex.getMessage(), request.getRequestURI());
     }
 
     @ExceptionHandler(ResourceConflictException.class)
