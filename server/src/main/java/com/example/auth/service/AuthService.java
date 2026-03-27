@@ -93,4 +93,11 @@ public class AuthService {
 
         return token;
     }
+
+    /**
+     * Récupère un utilisateur par son token.
+     */
+    public java.util.Optional<User> getUserByToken(String token) {
+        return userRepository.findByToken(token);
+    }
 }
