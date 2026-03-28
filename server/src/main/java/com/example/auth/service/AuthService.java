@@ -32,6 +32,14 @@ public class AuthService {
      * Inscrit un nouvel utilisateur.
      */
     public void register(String email, String password) {
+        // Validation email
+        if (email == null || email.isEmpty()) {
+            throw new InvalidInputException("L'email ne peut pas être vide.");
+        }
+        if (!email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$")) {
+            throw new InvalidInputException("Format d'email invalide.");
+        }
+
         // Validation politique mot de passe
         String policyError = passwordPolicyValidator.getErrorMessage(password);
         if (policyError != null) {
@@ -45,7 +53,6 @@ public class AuthService {
 
         // Hacher le mot de passe
         String hash = passwordEncoder.encode(password);
-
         User user = new User(email, hash);
         userRepository.save(user);
     }
